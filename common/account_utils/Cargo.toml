@@ -1,5 +1,5 @@
 [package]
-name = "eth2_wallet_manager"
+name = "account_utils"
 version = "0.1.0"
 authors = ["Paul Hauner <paul@paulhauner.com>"]
 edition = "2018"
@@ -7,10 +7,5 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-eth2_keystore = { path = "../../crypto/eth2_keystore" }
-eth2_wallet = { path = "../../crypto/eth2_wallet" }
 rand = "0.7.2"
-account_utils = { path = "../account_utils" }
-
-[dev-dependencies]
-tempfile = "3.1.0"
+eth2_wallet = { path = "../../crypto/eth2_wallet" }

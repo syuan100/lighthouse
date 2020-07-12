@@ -4,6 +4,7 @@
 name = "account_manager"
 version = "0.0.1"
 dependencies = [
+ "account_utils",
  "bls",
  "clap",
  "clap_utils",
@@ -28,6 +29,14 @@ dependencies = [
  "types",
  "validator_dir",
  "web3",
+]
+
+[[package]]
+name = "account_utils"
+version = "0.1.0"
+dependencies = [
+ "eth2_wallet",
+ "rand 0.7.3",
 ]
 
 [[package]]
@@ -1593,6 +1602,7 @@ dependencies = [
 name = "eth2_wallet_manager"
 version = "0.1.0"
 dependencies = [
+ "account_utils",
  "eth2_keystore",
  "eth2_wallet",
  "rand 0.7.3",
@@ -5977,6 +5987,7 @@ dependencies = [
 name = "validator_client"
 version = "0.1.2"
 dependencies = [
+ "account_utils",
  "bls",
  "clap",
  "clap_utils",
