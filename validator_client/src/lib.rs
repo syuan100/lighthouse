@@ -7,6 +7,7 @@ mod fork_service;
 mod is_synced;
 mod notifier;
 mod rest_api;
+mod validator_info;
 mod validator_store;
 
 pub use cli::cli_app;
