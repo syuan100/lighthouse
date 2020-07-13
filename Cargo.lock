@@ -6040,6 +6040,7 @@ dependencies = [
  "rayon",
  "serde",
  "serde_derive",
+ "serde_hex",
  "slog",
  "tempfile",
  "tree_hash",
