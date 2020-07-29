@@ -6,8 +6,7 @@ on:
   push:
     tags:
       - v*
-  push:
-    branch: master
+    branches: master
   workflow_dispatch:
     inputs:
       tags:
