@@ -1,0 +1,19 @@
+name: Sync Fork
+
+on:
+  schedule:
+    - cron: '* 9 * * *' #everyday at 9am
+  workflow_dispatch:
+
+jobs:
+  sync:
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: TG908/fork-sync@v1.1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          owner: sigp
+          base: master
+          head: master
