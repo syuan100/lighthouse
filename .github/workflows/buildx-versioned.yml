@@ -1,3 +1,17 @@
+name: Scheduled Push - ARM64 Docker Image - Versioned
+
+on:
+  schedule:
+    - cron: '0 0/6 * * *' # runs every 6 hours
+  workflow_dispatch:
+    inputs:
+      tags:
+        description: 'Tags'
+
+jobs:
+  buildx:
+    runs-on: ubuntu-latest
+    steps:
       -
         name: Get latest release tag
         id: geth
