@@ -1,4 +1,4 @@
-name: Scheduled Push - ARM64 Docker Image - Versioned
+name: Push ARM64 image - Versioned
 
 on:
   schedule:
@@ -19,13 +19,12 @@ jobs:
         with:
             owner: sigp
             repo: lighthouse
-      - name: Debug version
-        run: echo "::debug::${{ steps.lighthouse.outputs.release }}"
       -
         name: Checkout latest release
         uses: actions/checkout@v2
         with:
-          release: ${{ steps.lighthouse.outputs.release }}
+          ref: tags/${{ steps.lighthouse.outputs.release }}
+          fetch_depth: 0
       -
         name: Prepare versioned image
         id: prepare-versioned
