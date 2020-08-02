@@ -1,8 +1,9 @@
 name: Push ARM64 image - Versioned
 
 on:
-  schedule:
-    - cron: '0 0/6 * * *' # runs every 6 hours
+# No usable tags currently... skipping cron
+#   schedule:
+#     - cron: '0 0/6 * * *' # runs every 6 hours
   workflow_dispatch:
     inputs:
       tags:
