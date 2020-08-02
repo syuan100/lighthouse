@@ -24,7 +24,7 @@ jobs:
         uses: actions/checkout@v2
         with:
           ref: tags/${{ steps.lighthouse.outputs.release }}
-          fetch_depth: 0
+          fetch-depth: 0
       -
         name: Prepare versioned image
         id: prepare-versioned
