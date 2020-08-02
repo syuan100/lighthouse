@@ -14,16 +14,16 @@ jobs:
     steps:
       -
         name: Get latest release tag
-        id: geth
+        id: lighthouse
         uses: pozetroninc/github-action-get-latest-release@master
         with:
-            owner: ethereum
-            repo: go-ethereum
+            owner: sigp
+            repo: lighthouse
       -
         name: Checkout latest release
         uses: actions/checkout@v2
         with:
-          release: ${{ steps.geth.output.release }}
+          release: ${{ steps.lighthouse.outputs.release }}
       -
         name: Prepare versioned image
         id: prepare-versioned
