@@ -19,6 +19,8 @@ jobs:
         with:
             owner: sigp
             repo: lighthouse
+      - name: Debug version
+        run: echo "::debug::${{ steps.lighthouse.outputs.release }}"
       -
         name: Checkout latest release
         uses: actions/checkout@v2
