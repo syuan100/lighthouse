@@ -1,9 +1,8 @@
 name: Push ARM64 image - Versioned
 
 on:
-# No usable tags currently... skipping cron
-#   schedule:
-#     - cron: '0 0/6 * * *' # runs every 6 hours
+  schedule:
+    - cron: '0 0/6 * * *' # runs every 6 hours
   workflow_dispatch:
     inputs:
       tags:
@@ -32,7 +31,7 @@ jobs:
         run: |
           DOCKER_IMAGE=syuan100/lighthouse
           DOCKER_PLATFORMS=linux/arm64
-          VERSION=${{ steps.geth.output.release }}
+          VERSION=${{ steps.lighthouse.output.release }}
 
           TAGS="--tag ${DOCKER_IMAGE}:${VERSION}_arm64"
 
