@@ -23,4 +23,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Update tags
-        run: git push --tags
+        run: |
+          git fetch upstream
+          git rebase upstream/master
+          git push --tags
