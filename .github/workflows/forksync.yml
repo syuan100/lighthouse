@@ -17,5 +17,10 @@ jobs:
           owner: sigp
           base: master
           head: master
+      -
+        name: Checkout repo
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
       - name: Update tags
         run: git push --tags
