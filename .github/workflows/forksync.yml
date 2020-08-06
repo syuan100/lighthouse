@@ -24,6 +24,7 @@ jobs:
           fetch-depth: 0
       - name: Update tags
         run: |
+          git remote add upstream https://github.com/sigp/lighthouse.git
           git fetch upstream
           git rebase upstream/master
           git push --tags
