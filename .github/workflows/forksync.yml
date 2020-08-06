@@ -17,3 +17,5 @@ jobs:
           owner: sigp
           base: master
           head: master
+      - name: Update tags
+        run: git push --tags
