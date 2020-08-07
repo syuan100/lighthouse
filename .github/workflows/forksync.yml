@@ -25,8 +25,7 @@ jobs:
       - name: Update tags
         run: |
           git remote add upstream https://github.com/sigp/lighthouse.git
-          git fetch upstream --tags
-          git pull
+          git fetch upstream
       - name: Push tags
         uses: ad-m/github-push-action@master
         with:
