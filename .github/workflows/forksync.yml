@@ -4,9 +4,6 @@ on:
   schedule:
     - cron: '* 0/3 * * *' # every sixth hour
   workflow_dispatch:
-  push:
-    paths-ignore:     
-      - .github/workflows/test-suite.yml
 
 jobs:
   sync:
