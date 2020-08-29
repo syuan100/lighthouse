@@ -31,7 +31,7 @@ jobs:
         run: |
           DOCKER_IMAGE=syuan100/lighthouse
           DOCKER_PLATFORMS=linux/arm64
-          VERSION=${{ steps.lighthouse.output.release }}
+          VERSION=${{ steps.lighthouse.outputs.release }}
 
           TAGS="--tag ${DOCKER_IMAGE}:${VERSION}_arm64"
 
