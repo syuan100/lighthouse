@@ -30,10 +30,10 @@ jobs:
         id: prepare-versioned
         run: |
           DOCKER_IMAGE=syuan100/lighthouse
-          DOCKER_PLATFORMS=linux/arm64
+          DOCKER_PLATFORMS=linux/arm64,linux/amd64
           VERSION=${{ steps.lighthouse.outputs.release }}
 
-          TAGS="--tag ${DOCKER_IMAGE}:${VERSION}_arm64"
+          TAGS="--tag ${DOCKER_IMAGE}:${VERSION}"
 
           echo ::set-output name=docker_image::${DOCKER_IMAGE}
           echo ::set-output name=version::${VERSION}
