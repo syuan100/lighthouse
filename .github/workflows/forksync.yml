@@ -27,5 +27,9 @@ jobs:
           git remote add upstream https://github.com/sigp/lighthouse.git
           git fetch upstream
           git pull
-          git push --tags
+      - name: Push tags
+        uses: ad-m/github-push-action@master	
+        with:	
+          tags: true	
+          github_token: ${{ secrets.SYNC_TOKEN }}
 
