@@ -1,10 +1,10 @@
+use crate::beacon_node_fallback::{BeaconNodeFallback, RequireSynced};
 use crate::{
     duties_service::{DutiesService, DutyAndProof},
     http_metrics::metrics,
     validator_store::ValidatorStore,
 };
 use environment::RuntimeContext;
-use eth2::BeaconNodeHttpClient;
 use futures::future::FutureExt;
 use futures::StreamExt;
 use slog::{crit, error, info, trace};
@@ -24,7 +24,7 @@ pub struct AttestationServiceBuilder<T, E: EthSpec> {
     duties_service: Option<DutiesService<T, E>>,
     validator_store: Option<ValidatorStore<T, E>>,
     slot_clock: Option<T>,
-    beacon_node: Option<BeaconNodeHttpClient>,
+    beacon_nodes: Option<Arc<BeaconNodeFallback<T, E>>>,
     context: Option<RuntimeContext<E>>,
 }
 
@@ -34,7 +34,7 @@ impl<T: SlotClock + 'static, E: EthSpec> AttestationServiceBuilder<T, E> {
             duties_service: None,
             validator_store: None,
             slot_clock: None,
-            beacon_node: None,
+            beacon_nodes: None,
             context: None,
         }
     }
@@ -54,8 +54,8 @@ impl<T: SlotClock + 'static, E: EthSpec> AttestationServiceBuilder<T, E> {
         self
     }
 
-    pub fn beacon_node(mut self, beacon_node: BeaconNodeHttpClient) -> Self {
-        self.beacon_node = Some(beacon_node);
+    pub fn beacon_nodes(mut self, beacon_nodes: Arc<BeaconNodeFallback<T, E>>) -> Self {
+        self.beacon_nodes = Some(beacon_nodes);
         self
     }
 
@@ -69,19 +69,19 @@ impl<T: SlotClock + 'static, E: EthSpec> AttestationServiceBuilder<T, E> {
             inner: Arc::new(Inner {
                 duties_service: self
                     .duties_service
-                    .ok_or_else(|| "Cannot build AttestationService without duties_service")?,
+                    .ok_or("Cannot build AttestationService without duties_service")?,
                 validator_store: self
                     .validator_store
-                    .ok_or_else(|| "Cannot build AttestationService without validator_store")?,
+                    .ok_or("Cannot build AttestationService without validator_store")?,
                 slot_clock: self
                     .slot_clock
-                    .ok_or_else(|| "Cannot build AttestationService without slot_clock")?,
-                beacon_node: self
-                    .beacon_node
-                    .ok_or_else(|| "Cannot build AttestationService without beacon_node")?,
+                    .ok_or("Cannot build AttestationService without slot_clock")?,
+                beacon_nodes: self
+                    .beacon_nodes
+                    .ok_or("Cannot build AttestationService without beacon_nodes")?,
                 context: self
                     .context
-                    .ok_or_else(|| "Cannot build AttestationService without runtime_context")?,
+                    .ok_or("Cannot build AttestationService without runtime_context")?,
             }),
         })
     }
@@ -92,7 +92,7 @@ pub struct Inner<T, E: EthSpec> {
     duties_service: DutiesService<T, E>,
     validator_store: ValidatorStore<T, E>,
     slot_clock: T,
-    beacon_node: BeaconNodeHttpClient,
+    beacon_nodes: Arc<BeaconNodeFallback<T, E>>,
     context: RuntimeContext<E>,
 }
 
@@ -130,7 +130,7 @@ impl<T: SlotClock + 'static, E: EthSpec> AttestationService<T, E> {
         let duration_to_next_slot = self
             .slot_clock
             .duration_to_next_slot()
-            .ok_or_else(|| "Unable to determine duration to next slot".to_string())?;
+            .ok_or("Unable to determine duration to next slot")?;
 
         info!(
             log,
@@ -174,14 +174,11 @@ impl<T: SlotClock + 'static, E: EthSpec> AttestationService<T, E> {
     /// For each each required attestation, spawn a new task that downloads, signs and uploads the
     /// attestation to the beacon node.
     fn spawn_attestation_tasks(&self, slot_duration: Duration) -> Result<(), String> {
-        let slot = self
-            .slot_clock
-            .now()
-            .ok_or_else(|| "Failed to read slot clock".to_string())?;
+        let slot = self.slot_clock.now().ok_or("Failed to read slot clock")?;
         let duration_to_next_slot = self
             .slot_clock
             .duration_to_next_slot()
-            .ok_or_else(|| "Unable to determine duration to next slot".to_string())?;
+            .ok_or("Unable to determine duration to next slot")?;
 
         // If a validator needs to publish an aggregate attestation, they must do so at 2/3
         // through the slot. This delay triggers at this time
@@ -336,15 +333,20 @@ impl<T: SlotClock + 'static, E: EthSpec> AttestationService<T, E> {
         let current_epoch = self
             .slot_clock
             .now()
-            .ok_or_else(|| "Unable to determine current slot from clock".to_string())?
+            .ok_or("Unable to determine current slot from clock")?
             .epoch(E::slots_per_epoch());
 
         let attestation_data = self
-            .beacon_node
-            .get_validator_attestation_data(slot, committee_index)
+            .beacon_nodes
+            .first_success(RequireSynced::No, |beacon_node| async move {
+                beacon_node
+                    .get_validator_attestation_data(slot, committee_index)
+                    .await
+                    .map_err(|e| format!("Failed to produce attestation data: {:?}", e))
+                    .map(|result| result.data)
+            })
             .await
-            .map_err(|e| format!("Failed to produce attestation data: {:?}", e))?
-            .data;
+            .map_err(|e| e.to_string())?;
 
         let mut attestations = Vec::with_capacity(validator_duties.len());
 
@@ -411,9 +413,14 @@ impl<T: SlotClock + 'static, E: EthSpec> AttestationService<T, E> {
             }
         }
 
+        let attestations_slice = attestations.as_slice();
         match self
-            .beacon_node
-            .post_beacon_pool_attestations(attestations.as_slice())
+            .beacon_nodes
+            .first_success(RequireSynced::No, |beacon_node| async move {
+                beacon_node
+                    .post_beacon_pool_attestations(attestations_slice)
+                    .await
+            })
             .await
         {
             Ok(()) => info!(
@@ -428,7 +435,7 @@ impl<T: SlotClock + 'static, E: EthSpec> AttestationService<T, E> {
             Err(e) => error!(
                 log,
                 "Unable to publish attestations";
-                "error" => ?e,
+                "error" => %e,
                 "committee_index" => attestation_data.index,
                 "slot" => slot.as_u64(),
                 "type" => "unaggregated",
@@ -458,16 +465,22 @@ impl<T: SlotClock + 'static, E: EthSpec> AttestationService<T, E> {
     ) -> Result<(), String> {
         let log = self.context.log();
 
+        let attestation_data_ref = &attestation_data;
         let aggregated_attestation = self
-            .beacon_node
-            .get_validator_aggregate_attestation(
-                attestation_data.slot,
-                attestation_data.tree_hash_root(),
-            )
+            .beacon_nodes
+            .first_success(RequireSynced::No, |beacon_node| async move {
+                beacon_node
+                    .get_validator_aggregate_attestation(
+                        attestation_data_ref.slot,
+                        attestation_data_ref.tree_hash_root(),
+                    )
+                    .await
+                    .map_err(|e| format!("Failed to produce an aggregate attestation: {:?}", e))?
+                    .ok_or_else(|| format!("No aggregate available for {:?}", attestation_data_ref))
+                    .map(|result| result.data)
+            })
             .await
-            .map_err(|e| format!("Failed to produce an aggregate attestation: {:?}", e))?
-            .ok_or_else(|| format!("No aggregate available for {:?}", attestation_data))?
-            .data;
+            .map_err(|e| e.to_string())?;
 
         let mut signed_aggregate_and_proofs = Vec::new();
 
@@ -510,9 +523,14 @@ impl<T: SlotClock + 'static, E: EthSpec> AttestationService<T, E> {
         }
 
         if !signed_aggregate_and_proofs.is_empty() {
+            let signed_aggregate_and_proofs_slice = signed_aggregate_and_proofs.as_slice();
             match self
-                .beacon_node
-                .post_validator_aggregate_and_proof(signed_aggregate_and_proofs.as_slice())
+                .beacon_nodes
+                .first_success(RequireSynced::No, |beacon_node| async move {
+                    beacon_node
+                        .post_validator_aggregate_and_proof(signed_aggregate_and_proofs_slice)
+                        .await
+                })
                 .await
             {
                 Ok(()) => {
@@ -536,7 +554,7 @@ impl<T: SlotClock + 'static, E: EthSpec> AttestationService<T, E> {
                         crit!(
                             log,
                             "Failed to publish attestation";
-                            "error" => e.to_string(),
+                            "error" => %e,
                             "committee_index" => attestation.data.index,
                             "slot" => attestation.data.slot.as_u64(),
                             "type" => "aggregated",
