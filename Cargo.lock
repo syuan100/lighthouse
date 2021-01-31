@@ -597,6 +597,7 @@ dependencies = [
  "smallvec",
  "state_processing",
  "store",
+ "strum",
  "task_executor",
  "tempfile",
  "tokio 0.3.6",
@@ -606,7 +607,7 @@ dependencies = [
 
 [[package]]
 name = "beacon_node"
-version = "1.0.6"
+version = "1.1.0"
 dependencies = [
  "beacon_chain",
  "clap",
@@ -831,7 +832,7 @@ dependencies = [
 
 [[package]]
 name = "boot_node"
-version = "1.0.6"
+version = "1.1.0"
 dependencies = [
  "beacon_node",
  "clap",
@@ -1912,7 +1913,6 @@ version = "0.2.0"
 dependencies = [
  "serde",
  "serde_derive",
- "toml",
  "types",
 ]
 
@@ -2010,8 +2010,9 @@ dependencies = [
  "slog-term",
  "smallvec",
  "snap",
+ "strum",
  "task_executor",
- "tempdir",
+ "tempfile",
  "tiny-keccak 2.0.2",
  "tokio 0.3.6",
  "tokio-io-timeout",
@@ -2030,7 +2031,7 @@ dependencies = [
  "eth2_ssz",
  "serde",
  "serde_yaml",
- "tempdir",
+ "tempfile",
  "types",
  "zip",
 ]
@@ -3320,8 +3321,9 @@ dependencies = [
 
 [[package]]
 name = "lcli"
-version = "1.0.6"
+version = "1.1.0"
 dependencies = [
+ "account_utils",
  "bls",
  "clap",
  "clap_utils",
@@ -3333,6 +3335,7 @@ dependencies = [
  "eth2_libp2p",
  "eth2_network_config",
  "eth2_ssz",
+ "eth2_wallet",
  "futures 0.3.8",
  "genesis",
  "hex",
@@ -3712,7 +3715,7 @@ dependencies = [
 
 [[package]]
 name = "lighthouse"
-version = "1.0.6"
+version = "1.1.0"
 dependencies = [
  "account_manager",
  "account_utils",
@@ -3800,7 +3803,7 @@ name = "lockfile"
 version = "0.1.0"
 dependencies = [
  "fs2",
- "tempdir",
+ "tempfile",
 ]
 
 [[package]]
@@ -4211,6 +4214,7 @@ dependencies = [
  "smallvec",
  "state_processing",
  "store",
+ "strum",
  "task_executor",
  "tempfile",
  "tokio 0.3.6",
@@ -4261,7 +4265,7 @@ dependencies = [
  "genesis",
  "reqwest",
  "serde",
- "tempdir",
+ "tempfile",
  "types",
  "url",
  "validator_client",
@@ -4996,19 +5000,6 @@ checksum = "941ba9d78d8e2f7ce474c015eea4d9c6d25b6a3327f9832ee29a4de27f91bbb8"
 
 [[package]]
 name = "rand"
-version = "0.4.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "552840b97013b1a26992c11eac34bdd778e464601a4c2054b5f0bff7c6761293"
-dependencies = [
- "fuchsia-cprng",
- "libc",
- "rand_core 0.3.1",
- "rdrand",
- "winapi 0.3.9",
-]
-
-[[package]]
-name = "rand"
 version = "0.6.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6d71dacdc3c88c1fde3885a3be3fbab9f35724e6ce99467f7d9c5026132184ca"
@@ -5269,7 +5260,7 @@ dependencies = [
  "remote_signer_test",
  "slog",
  "sloggers",
- "tempdir",
+ "tempfile",
  "types",
  "zeroize",
 ]
@@ -5317,7 +5308,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
- "tempdir",
+ "tempfile",
  "tokio 0.3.6",
  "tokio-compat-02",
  "types",
@@ -5897,7 +5888,7 @@ dependencies = [
  "serde_derive",
  "slog",
  "sloggers",
- "tempdir",
+ "tempfile",
  "tree_hash",
  "tree_hash_derive",
  "types",
@@ -6055,9 +6046,9 @@ dependencies = [
 
 [[package]]
 name = "smallvec"
-version = "1.5.1"
+version = "1.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ae524f056d7d770e174287294f562e95044c68e88dec909a00d2094805db9d75"
+checksum = "fe0f37c9e8f3c5a4a66ad655a93c74daac4ad00c441533bf5c6e7990bb42604e"
 
 [[package]]
 name = "snap"
@@ -6280,6 +6271,27 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8ea5119cdb4c55b55d432abb513a0429384878c15dde60cc77b1c99de1a95a6a"
 
 [[package]]
+name = "strum"
+version = "0.20.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7318c509b5ba57f18533982607f24070a55d353e90d4cae30c467cdb2ad5ac5c"
+dependencies = [
+ "strum_macros",
+]
+
+[[package]]
+name = "strum_macros"
+version = "0.20.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ee8bc6b87a5112aeeab1f4a9f7ab634fe6cbefc4850006df31267f4cfb9e3149"
+dependencies = [
+ "heck",
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "subtle"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6352,16 +6364,6 @@ dependencies = [
  "slog",
  "tokio 0.3.6",
  "tokio-compat-02",
-]
-
-[[package]]
-name = "tempdir"
-version = "0.3.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "15f2b5fb00ccdf689e0149d1b1b3c03fead81c2b37735d812fa8bddbbf41b6d8"
-dependencies = [
- "rand 0.4.6",
- "remove_dir_all",
 ]
 
 [[package]]
@@ -7155,7 +7157,6 @@ dependencies = [
  "slog-async",
  "slog-term",
  "slot_clock",
- "tempdir",
  "tempfile",
  "tokio 0.3.6",
  "tokio-compat-02",

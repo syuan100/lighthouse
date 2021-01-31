@@ -43,9 +43,9 @@ const STATUS_INTERVAL: u64 = 300;
 /// within this time frame (Seconds)
 /// This is asymmetric to avoid simultaneous pings.
 /// The interval for outbound connections.
-const PING_INTERVAL_OUTBOUND: u64 = 30;
+const PING_INTERVAL_OUTBOUND: u64 = 15;
 /// The interval for inbound connections.
-const PING_INTERVAL_INBOUND: u64 = 35;
+const PING_INTERVAL_INBOUND: u64 = 20;
 
 /// The heartbeat performs regular updates such as updating reputations and performing discovery
 /// requests. This defines the interval in seconds.
@@ -158,8 +158,8 @@ impl<TSpec: EthSpec> PeerManager<TSpec> {
             metrics::inc_counter_vec(
                 &metrics::PEER_ACTION_EVENTS_PER_CLIENT,
                 &[
-                    info.client.kind.as_static_ref(),
-                    PeerAction::Fatal.as_static_str(),
+                    info.client.kind.as_ref(),
+                    PeerAction::Fatal.as_ref(),
                     source.into(),
                 ],
             );
@@ -193,11 +193,7 @@ impl<TSpec: EthSpec> PeerManager<TSpec> {
                 info.apply_peer_action_to_score(action);
                 metrics::inc_counter_vec(
                     &metrics::PEER_ACTION_EVENTS_PER_CLIENT,
-                    &[
-                        info.client.kind.as_static_ref(),
-                        action.as_static_str(),
-                        source.into(),
-                    ],
+                    &[info.client.kind.as_ref(), action.as_ref(), source.into()],
                 );
 
                 Self::handle_score_transitions(
@@ -407,9 +403,9 @@ impl<TSpec: EthSpec> PeerManager<TSpec> {
         metrics::inc_counter_vec(
             &metrics::TOTAL_RPC_ERRORS_PER_CLIENT,
             &[
-                client.kind.as_static_ref(),
+                client.kind.as_ref(),
                 err.as_static_str(),
-                direction.as_static_str(),
+                direction.as_ref(),
             ],
         );
 
@@ -480,7 +476,7 @@ impl<TSpec: EthSpec> PeerManager<TSpec> {
                     Protocol::Status => return,
                 },
             },
-            RPCError::NegotiationTimeout => PeerAction::HighToleranceError,
+            RPCError::NegotiationTimeout => PeerAction::LowToleranceError,
         };
 
         self.report_peer(peer_id, peer_action, ReportSource::RPC);
