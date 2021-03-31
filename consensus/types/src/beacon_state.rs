@@ -444,6 +444,62 @@ impl<T: EthSpec> BeaconState<T> {
         cache.get_all_beacon_committees()
     }
 
+    /// Returns the block root which decided the proposer shuffling for the current epoch. This root
+    /// can be used to key this proposer shuffling.
+    ///
+    /// ## Notes
+    ///
+    /// The `block_root` covers the one-off scenario where the genesis block decides its own
+    /// shuffling. It should be set to the latest block applied to `self` or the genesis block root.
+    pub fn proposer_shuffling_decision_root(&self, block_root: Hash256) -> Result<Hash256, Error> {
+        let decision_slot = self.proposer_shuffling_decision_slot();
+        if self.slot == decision_slot {
+            Ok(block_root)
+        } else {
+            self.get_block_root(decision_slot).map(|root| *root)
+        }
+    }
+
+    /// Returns the slot at which the proposer shuffling was decided. The block root at this slot
+    /// can be used to key the proposer shuffling for the current epoch.
+    fn proposer_shuffling_decision_slot(&self) -> Slot {
+        self.current_epoch()
+            .start_slot(T::slots_per_epoch())
+            .saturating_sub(1_u64)
+    }
+
+    /// Returns the block root which decided the attester shuffling for the given `relative_epoch`.
+    /// This root can be used to key that attester shuffling.
+    ///
+    /// ## Notes
+    ///
+    /// The `block_root` covers the one-off scenario where the genesis block decides its own
+    /// shuffling. It should be set to the latest block applied to `self` or the genesis block root.
+    pub fn attester_shuffling_decision_root(
+        &self,
+        block_root: Hash256,
+        relative_epoch: RelativeEpoch,
+    ) -> Result<Hash256, Error> {
+        let decision_slot = self.attester_shuffling_decision_slot(relative_epoch);
+        if self.slot == decision_slot {
+            Ok(block_root)
+        } else {
+            self.get_block_root(decision_slot).map(|root| *root)
+        }
+    }
+
+    /// Returns the slot at which the proposer shuffling was decided. The block root at this slot
+    /// can be used to key the proposer shuffling for the current epoch.
+    fn attester_shuffling_decision_slot(&self, relative_epoch: RelativeEpoch) -> Slot {
+        match relative_epoch {
+            RelativeEpoch::Next => self.current_epoch(),
+            RelativeEpoch::Current => self.previous_epoch(),
+            RelativeEpoch::Previous => self.previous_epoch().saturating_sub(1_u64),
+        }
+        .start_slot(T::slots_per_epoch())
+        .saturating_sub(1_u64)
+    }
+
     /// Compute the proposer (not necessarily for the Beacon chain) from a list of indices.
     ///
     /// Spec v0.12.1
@@ -525,6 +581,24 @@ impl<T: EthSpec> BeaconState<T> {
         let indices = self.get_active_validator_indices(epoch, spec)?;
 
         self.compute_proposer_index(&indices, &seed, spec)
+    }
+
+    /// Returns the beacon proposer index for each `slot` in `self.current_epoch()`.
+    ///
+    /// The returned `Vec` contains one proposer index for each slot. For example, if
+    /// `state.current_epoch() == 1`, then `vec[0]` refers to slot `32` and `vec[1]` refers to slot
+    /// `33`. It will always be the case that `vec.len() == SLOTS_PER_EPOCH`.
+    pub fn get_beacon_proposer_indices(&self, spec: &ChainSpec) -> Result<Vec<usize>, Error> {
+        // Not using the cached validator indices since they are shuffled.
+        let indices = self.get_active_validator_indices(self.current_epoch(), spec)?;
+
+        self.current_epoch()
+            .slot_iter(T::slots_per_epoch())
+            .map(|slot| {
+                let seed = self.get_beacon_proposer_seed(slot, spec)?;
+                self.compute_proposer_index(&indices, &seed, spec)
+            })
+            .collect()
     }
 
     /// Compute the seed to use for the beacon proposer selection at the given `slot`.

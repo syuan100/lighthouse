@@ -183,8 +183,13 @@ impl ForkChoiceTest {
                 break;
             }
             if let Ok(block_hash) = self.harness.process_block_result(block.clone()) {
-                self.harness
-                    .attest_block(&state, block_hash, &block, &validators);
+                self.harness.attest_block(
+                    &state,
+                    block.state_root(),
+                    block_hash,
+                    &block,
+                    &validators,
+                );
                 self.harness.advance_slot();
             } else {
                 return Err(self);
@@ -635,12 +640,7 @@ fn invalid_block_future_slot() {
             |block, _| {
                 block.slot = block.slot + 1;
             },
-            |err| {
-                assert_invalid_block!(
-                    err,
-                    InvalidBlock::FutureSlot { .. }
-                )
-            },
+            |err| assert_invalid_block!(err, InvalidBlock::FutureSlot { .. }),
         );
 }
 

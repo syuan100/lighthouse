@@ -4,8 +4,9 @@
 
 use crate::metrics;
 use parking_lot::RwLock;
-use slog::{crit, info, Logger};
+use slog::{crit, error, info, warn, Logger};
 use slot_clock::SlotClock;
+use state_processing::per_epoch_processing::ValidatorStatus;
 use std::collections::{HashMap, HashSet};
 use std::convert::TryFrom;
 use std::io;
@@ -325,6 +326,103 @@ impl<T: EthSpec> ValidatorMonitor<T> {
         }
     }
 
+    pub fn process_validator_statuses(&self, epoch: Epoch, summaries: &[ValidatorStatus]) {
+        for monitored_validator in self.validators.values() {
+            // We subtract two from the state of the epoch that generated these summaries.
+            //
+            // - One to account for it being the previous epoch.
+            // - One to account for the state advancing an epoch whilst generating the validator
+            //     statuses.
+            let prev_epoch = epoch - 2;
+            if let Some(i) = monitored_validator.index {
+                let i = i as usize;
+                let id = &monitored_validator.id;
+
+                if let Some(summary) = summaries.get(i) {
+                    if summary.is_previous_epoch_attester {
+                        let lag = summary
+                            .inclusion_info
+                            .map(|i| format!("{} slot(s)", i.delay.saturating_sub(1).to_string()))
+                            .unwrap_or_else(|| "??".to_string());
+
+                        info!(
+                            self.log,
+                            "Previous epoch attestation success";
+                            "inclusion_lag" => lag,
+                            "matched_target" => summary.is_previous_epoch_target_attester,
+                            "matched_head" => summary.is_previous_epoch_head_attester,
+                            "epoch" => prev_epoch,
+                            "validator" => id,
+
+                        )
+                    } else if summary.is_active_in_previous_epoch
+                        && !summary.is_previous_epoch_attester
+                    {
+                        error!(
+                            self.log,
+                            "Previous epoch attestation missing";
+                            "epoch" => prev_epoch,
+                            "validator" => id,
+                        )
+                    }
+
+                    if summary.is_previous_epoch_attester {
+                        metrics::inc_counter_vec(
+                            &metrics::VALIDATOR_MONITOR_PREV_EPOCH_ON_CHAIN_ATTESTER_HIT,
+                            &[id],
+                        );
+                    } else {
+                        metrics::inc_counter_vec(
+                            &metrics::VALIDATOR_MONITOR_PREV_EPOCH_ON_CHAIN_ATTESTER_MISS,
+                            &[id],
+                        );
+                    }
+                    if summary.is_previous_epoch_head_attester {
+                        metrics::inc_counter_vec(
+                            &metrics::VALIDATOR_MONITOR_PREV_EPOCH_ON_CHAIN_HEAD_ATTESTER_HIT,
+                            &[id],
+                        );
+                    } else {
+                        metrics::inc_counter_vec(
+                            &metrics::VALIDATOR_MONITOR_PREV_EPOCH_ON_CHAIN_HEAD_ATTESTER_MISS,
+                            &[id],
+                        );
+                        warn!(
+                            self.log,
+                            "Attested to an incorrect head";
+                            "epoch" => prev_epoch,
+                            "validator" => id,
+                        );
+                    }
+                    if summary.is_previous_epoch_target_attester {
+                        metrics::inc_counter_vec(
+                            &metrics::VALIDATOR_MONITOR_PREV_EPOCH_ON_CHAIN_TARGET_ATTESTER_HIT,
+                            &[id],
+                        );
+                    } else {
+                        metrics::inc_counter_vec(
+                            &metrics::VALIDATOR_MONITOR_PREV_EPOCH_ON_CHAIN_TARGET_ATTESTER_MISS,
+                            &[id],
+                        );
+                        warn!(
+                            self.log,
+                            "Attested to an incorrect target";
+                            "epoch" => prev_epoch,
+                            "validator" => id,
+                        );
+                    }
+                    if let Some(inclusion_info) = summary.inclusion_info {
+                        metrics::set_int_gauge(
+                            &metrics::VALIDATOR_MONITOR_PREV_EPOCH_ON_CHAIN_INCLUSION_DISTANCE,
+                            &[id],
+                            inclusion_info.delay as i64,
+                        );
+                    }
+                }
+            }
+        }
+    }
+
     fn get_validator_id(&self, validator_index: u64) -> Option<&str> {
         self.indices
             .get(&validator_index)
@@ -367,18 +465,6 @@ impl<T: EthSpec> ValidatorMonitor<T> {
         }
     }
 
-    /// Returns the delay between the start of `block.slot` and `seen_timestamp`.
-    fn get_block_delay_ms<S: SlotClock>(
-        seen_timestamp: Duration,
-        block: &BeaconBlock<T>,
-        slot_clock: &S,
-    ) -> Duration {
-        slot_clock
-            .start_of(block.slot)
-            .and_then(|slot_start| seen_timestamp.checked_sub(slot_start))
-            .unwrap_or_else(|| Duration::from_secs(0))
-    }
-
     /// Process a block received on gossip.
     pub fn register_gossip_block<S: SlotClock>(
         &self,
@@ -410,7 +496,7 @@ impl<T: EthSpec> ValidatorMonitor<T> {
         slot_clock: &S,
     ) {
         if let Some(id) = self.get_validator_id(block.proposer_index) {
-            let delay = Self::get_block_delay_ms(seen_timestamp, block, slot_clock);
+            let delay = get_block_delay_ms(seen_timestamp, block, slot_clock);
 
             metrics::inc_counter_vec(&metrics::VALIDATOR_MONITOR_BEACON_BLOCK_TOTAL, &[src, id]);
             metrics::observe_timer_vec(
@@ -950,4 +1036,25 @@ pub fn timestamp_now() -> Duration {
 
 fn u64_to_i64(n: impl Into<u64>) -> i64 {
     i64::try_from(n.into()).unwrap_or(i64::max_value())
+}
+
+/// Returns the delay between the start of `block.slot` and `seen_timestamp`.
+pub fn get_block_delay_ms<T: EthSpec, S: SlotClock>(
+    seen_timestamp: Duration,
+    block: &BeaconBlock<T>,
+    slot_clock: &S,
+) -> Duration {
+    get_slot_delay_ms::<S>(seen_timestamp, block.slot, slot_clock)
+}
+
+/// Returns the delay between the start of `slot` and `seen_timestamp`.
+pub fn get_slot_delay_ms<S: SlotClock>(
+    seen_timestamp: Duration,
+    slot: Slot,
+    slot_clock: &S,
+) -> Duration {
+    slot_clock
+        .start_of(slot)
+        .and_then(|slot_start| seen_timestamp.checked_sub(slot_start))
+        .unwrap_or_else(|| Duration::from_secs(0))
 }

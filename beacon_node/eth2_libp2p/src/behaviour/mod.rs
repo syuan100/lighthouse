@@ -36,7 +36,7 @@ use ssz::Encode;
 use std::collections::HashSet;
 use std::fs::File;
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::{
     collections::VecDeque,
     marker::PhantomData,
@@ -832,7 +832,7 @@ impl<TSpec: EthSpec> Behaviour<TSpec> {
         if let Some((peer_id, reason)) = self.peers_to_dc.pop_front() {
             return Poll::Ready(NBAction::NotifyHandler {
                 peer_id,
-                handler: NotifyHandler::All,
+                handler: NotifyHandler::Any,
                 event: BehaviourHandlerIn::Shutdown(
                     reason.map(|reason| (RequestId::Behaviour, RPCRequest::Goodbye(reason))),
                 ),
@@ -893,7 +893,7 @@ impl<TSpec: EthSpec> Behaviour<TSpec> {
         }
 
         // perform gossipsub score updates when necessary
-        while let Poll::Ready(Some(_)) = self.update_gossipsub_scores.poll_next_unpin(cx) {
+        while self.update_gossipsub_scores.poll_tick(cx).is_ready() {
             self.peer_manager.update_gossipsub_scores(&self.gossipsub);
         }
 
@@ -1336,7 +1336,7 @@ impl<TSpec: EthSpec> std::convert::From<Response<TSpec>> for RPCCodedResponse<TS
 }
 
 /// Persist metadata to disk
-pub fn save_metadata_to_disk<E: EthSpec>(dir: &PathBuf, metadata: MetaData<E>, log: &slog::Logger) {
+pub fn save_metadata_to_disk<E: EthSpec>(dir: &Path, metadata: MetaData<E>, log: &slog::Logger) {
     let _ = std::fs::create_dir_all(&dir);
     match File::create(dir.join(METADATA_FILENAME))
         .and_then(|mut f| f.write_all(&metadata.as_ssz_bytes()))
