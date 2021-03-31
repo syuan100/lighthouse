@@ -8,3 +8,7 @@ perf.data*
 *.tar.gz
 /bin
 genesis.ssz
+.github/**
+!.github/workflows/buildx-latest.yml
+!.github/workflows/buildx-versioned.yml
+!.github/workflows/forksync.yml
